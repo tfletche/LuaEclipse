@@ -110,7 +110,8 @@ local function remove_breakpoint(file, line)
 end
 
 local function has_breakpoint(file, line)
-    --dprint("has-breakpoint?", file, line, breakpoints[file] and breakpoints[file][line])
+    --High bandwidth call, remove this comment if you need the insight
+    dprint("has-breakpoint?", file, line, breakpoints[file] and breakpoints[file][line])
     return breakpoints[file] and breakpoints[file][line]
 end
 
@@ -218,8 +219,29 @@ local function getFileName(f)
     if string.find(f, "@") == 1 then
         local file = string.sub(f, 2)
         if cwd and string.sub(file, 1, 1) ~= "/" then
-            return cwd.."/"..file
+			-- Also check for Windows style fullpath of [drive]:/
+			if(not string.find(file, "^[a-zA-Z]:[/\\]")) then
+				file = cwd.."/"..file
+			end
         end
+        
+        --In order to support mixed debugging across different
+        --platforms and filesystems, we always normalize the
+        --filename to contain '/' as separators.
+        --Debugger hosts must likewise be consistent in always
+        --sending paths/files with '/' separators.
+        
+		local newfile;
+
+        --We blindly assume that any '\' values should be flipped
+		newfile = string.gsub(file, "\\", "/")
+        --Trim out x/./y to x/y
+        newfile = string.gsub(newfile, "/\./", "/");
+        --Trim out /x/../y to /y
+        --newfile = string.gsub(newfile, "/[^/]+/\.\./", "/");
+        --dprint("File change: " .. file .. " to " .. newfile)  
+		file = newfile        
+        
         return file
     else
         return nil
@@ -275,11 +297,11 @@ local function fill_callstack(callstackTable, localsTable, fromLevel, maxFrames)
 end
 
 local function debug_hook(event, line, level, thread)
-    --io.stdout:write("ü")
     level = level or 2
     local thread = thread or main
     running_thread = thread
 
+	dprint("Debug Hook: "..event)
     if event == "call" then
         stack_depth[running_thread] = stack_depth[running_thread] + 1
     elseif event == "return" or event == "tail return" then
@@ -377,8 +399,10 @@ local eventSink
 function commands.createEventSocket(server, port)
     eventSink = socket.connect(controller_host, port)
     if eventSink then
+    	dprint("Created event socket")
         return SUCCESS
     else
+    	dprint("FAIL: Can't create event socket")
         return EXECUTION_ERROR_
     end
 end
@@ -483,7 +507,7 @@ function commands.run(server)
     eventSink:send(RUNNING) 
 
     -- Yield back to the debug hook coroutine
-    local ev, vars, file, line, idx_watch = coroutine.yield()
+	local ev, vars, file, line, idx_watch = coroutine.yield()
 
     eval_env = vars
 
@@ -658,7 +682,11 @@ local function grabStacktrace(message)
     stacktrace = debug.traceback(message, 2)
     dprint("STACKTRACE:", stacktrace)
     local thread = coroutine.running() or main
-    fill_callstack(errorCallstack, errorLocals, 2, stack_depth[thread]-2)
+
+    if(stack_depth[thread] ~= nil) then
+    	fill_callstack(errorCallstack, errorLocals, 2, stack_depth[thread]-2)
+	end
+
     return message
 end
 
@@ -735,10 +763,9 @@ local function debugger_loop(server)
         local result  = BAD_REQUEST
 
         for command, params in string.gmatch(line, "([A-Z]+)%s*(.*)") do
-            dprint('found:', command, params)
-            dprint('executing command:',command, params)
+            dprint('executing command:', command, params)
             local operation = operations[command] and operations[command].operation
-            dprint('executing...', tostring(command), tostring(operation))
+            dprint(' executing...', tostring(command), tostring(operation))
             if operation then
                 dprint('about to run', tostring(operation), tostring(commands[operation]), tostring(params),  operations[command].paramsMask)
                 local outparams = {}
@@ -751,7 +778,10 @@ local function debugger_loop(server)
                 local function callFunc()
                     return commands[operation](server, unpack(outparams))
                 end
-                success, result = xpcall(callFunc, grabStacktrace)
+                --TF NOTE: Can't make xpcall() and still yield()
+                --success, result = xpcall(callFunc, grabStacktrace)
+                success = true
+                result = callFunc()
                 if not success then
                     print("Error in debug loop:", operation, result, stacktrace)
                 end
@@ -813,7 +843,7 @@ function start()
     pcall(require, "remdebug.config")
     dprint('Connecting...', controller_host, controller_port)
     for i = 1,60 do
-        if i % 3 == 0 then
+        if i % 3 == 1 then
             print("Connecting to debug client...", controller_host, controller_port)
         end
         local server = socket.connect(controller_host, controller_port)
@@ -832,11 +862,30 @@ function start()
     error('Could not connect to server: ' .. (msg or ''))
 end
 
+function launchString(luaString)
+    local thread = coroutine.running() or main
+    local function callFunc()
+        stack_depth[thread] = 0
+        step_level [thread] = 0
+		print("Starting execution of file" .. luaString)
+        loadstring(luaString)
+    end
+    inDisplayThreadTerminatingError = false
+    local success, ret = xpcall(callFunc, grabStacktrace)
+    if not success then
+        local success, globalError = pcall(function() return getLastUncaughtError() end)
+        inDisplayThreadTerminatingError = true
+        displayCoroutineTerminatingError(thread, ret, stacktrace, success and globalError)
+        error(ret)
+    end
+end
+
 function launch(luaFile)
     local thread = coroutine.running() or main
     local function callFunc()
         stack_depth[thread] = 0
         step_level [thread] = 0
+		print("Starting execution of file" .. luaFile)
         dofile(luaFile)
     end
     inDisplayThreadTerminatingError = false

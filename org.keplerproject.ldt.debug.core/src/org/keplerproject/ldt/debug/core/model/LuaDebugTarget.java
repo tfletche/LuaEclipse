@@ -6,11 +6,8 @@ package org.keplerproject.ldt.debug.core.model;
 import java.io.IOException;
 import java.util.Vector;
 
-import org.eclipse.core.resources.IMarker;
 import org.eclipse.core.resources.IMarkerDelta;
-import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.CoreException;
-import org.eclipse.debug.core.DebugEvent;
 import org.eclipse.debug.core.DebugException;
 import org.eclipse.debug.core.IBreakpointManager;
 import org.eclipse.debug.core.IBreakpointManagerListener;
@@ -20,9 +17,7 @@ import org.eclipse.debug.core.model.IDebugTarget;
 import org.eclipse.debug.core.model.IMemoryBlock;
 import org.eclipse.debug.core.model.IProcess;
 import org.eclipse.debug.core.model.IThread;
-import org.keplerproject.ldt.debug.core.LuaDebuggerPlugin;
 import org.keplerproject.ldt.debug.core.breakpoints.LuaLineBreakpoint;
-import org.keplerproject.ldt.debug.core.breakpoints.LuaRunToLineBreakpoint;
 
 /**
  * @author jasonsantos
@@ -60,7 +55,10 @@ public class LuaDebugTarget extends LuaDebugElement implements IDebugTarget,
 	 * @throws InterruptedException
 	 */
 	public LuaDebugTarget(ILaunch launch, IProcess proc, LuaDebugServer server) throws CoreException {
+		//We pass in null as the debug target, but then we override
+		//the getDebugTarget() since we implement the API ourselves.
 		super(null);
+		
 		fLaunch = launch;
 		fProcess = proc;
 		fServer = server;
@@ -80,6 +78,15 @@ public class LuaDebugTarget extends LuaDebugElement implements IDebugTarget,
 		installDeferredBreakpoints();
 		resume();
 
+	}
+	
+	/**
+	 * This is required because the DebugElement doesn't have a setDebugTarget()
+	 * method that allows us to pass ourselves in as the debug target, so we have
+	 * to rely on method overrides.
+	 */
+	public IDebugTarget getDebugTarget() {
+		return this;
 	}
 
 	@Override

@@ -41,20 +41,16 @@ public class LuaDebugServer {
 
 	private boolean			fStarted;
 	private boolean			fListening;
+	private boolean 		fTerminated = false;
 
 	private final Job		fRequestJob	= new Job("Remdebug Request Dispatcher") {
-		@Override
 		protected IStatus run(IProgressMonitor monitor) {
-
 			try {
 				start();
-
 				return Status.OK_STATUS;
-			} catch (DebugException e) {
+			} catch (Exception e) {
 				e.printStackTrace();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
+			} 
 
 			terminate();
 			fElement.getLuaDebugTarget().terminated();
@@ -62,14 +58,14 @@ public class LuaDebugServer {
 		}
 	};
 
-	private final Job		fEventsJob	= new Job("Remdebug Event Dispatcher") {
-		@Override
+	private final Job	fEventsJob	= new Job("Remdebug Event Dispatcher") {
 		protected IStatus run(IProgressMonitor monitor) {
 			LuaDebugTarget target = null;
 
-			while (!fStarted)
+			while (!fStarted) {
 				Thread.yield();
-
+			}
+			
 			try {
 				String event = receive();
 				if (event == null) {
@@ -79,23 +75,32 @@ public class LuaDebugServer {
 				
 				// Thread.sleep(1000);
 				target = fElement.getLuaDebugTarget();
-				while ((target != null && !target.isTerminated())
-						&& event != null) {
+				while ((target != null && !target.isTerminated()) && event != null) {
 
+					//TF NOTE: Event can never be null here
 					if (event != null) {
 						for (ILuaEventListener l : target.getEventListeners()) {
-							l.handleEvent(event);
+							try {
+								l.handleEvent(event);
+							} catch(Exception ex) {
+								ex.printStackTrace();
+							}
 						}
 					}
 
-					if (!target.isTerminated())
+					if (target != null && !target.isTerminated()) {
 						event = receive();
+					}
 				}
 			} catch (IOException e) {
-				target.terminated();
+				if(target != null) {
+					target.terminated();
+				}
 			} catch (DebugException e) {
 				System.out.println("Error receiving event:" + e.getMessage());
-				target.terminated();
+				if(target != null) {
+					target.terminated();
+				}
 			}
 			terminate();
 			return Status.OK_STATUS;
@@ -106,8 +111,8 @@ public class LuaDebugServer {
 			throws DebugException, IOException {
 
 		fControlPort = controlPort;
-		fEventPort = eventPort;
 		fHost = host;
+		fEventPort = eventPort;
 
 		fRequestJob.setSystem(true);
 		fEventsJob.setSystem(true);
@@ -126,8 +131,7 @@ public class LuaDebugServer {
 		fRemdebugServer.close();
 
 		fRequestWriter = new PrintWriter(fRemdebugSocket.getOutputStream());
-		fRequestReader = new BufferedReader(new InputStreamReader(
-				fRemdebugSocket.getInputStream()));
+		fRequestReader = new BufferedReader(new InputStreamReader(fRemdebugSocket.getInputStream()));
 
 		fStarted = true;
 
@@ -151,19 +155,29 @@ public class LuaDebugServer {
 			/*
 			 * TODO create several event ports for multithreading debuggers
 			 */
-			while (!fStarted)
+			while (!fStarted && !fTerminated) {
 				Thread.yield();
+			}
+			if(fTerminated) {
+				fElement.fireTerminateEvent();
+				fElement.requestFailed("Debug server terminated", null);
+			}
 
 			String result = sendRequest("SUBSCRIBE " + fEventPort);
 
-			if (!result.startsWith("200"))
+			if (result == null || !result.startsWith("200")) {
 				throw new IOException("Can't connect to event port");
-
-			while (!fListening)
+			}
+			
+			while (!fListening && !fTerminated) {
 				Thread.yield();
-
-			fEventReader = new BufferedReader(new InputStreamReader(
-					fRemdebugEventSocket.getInputStream()));
+			}
+			if(fTerminated) {
+				fElement.fireTerminateEvent();
+				fElement.requestFailed("Debug server terminated", null);
+			}
+			
+			fEventReader = new BufferedReader(new InputStreamReader(fRemdebugEventSocket.getInputStream()));
 
 		} catch (UnknownHostException e) {
 			fElement.requestFailed("Unable to connect to Remdebug", e);
@@ -177,7 +191,6 @@ public class LuaDebugServer {
 	 * 
 	 * @see org.eclipse.debug.core.model.IDebugElement#getModelIdentifier()
 	 */
-
 	public String getModelIdentifier() {
 		return fElement.getDebugTarget().getModelIdentifier();
 	}
@@ -202,19 +215,44 @@ public class LuaDebugServer {
 		} else
 			return "100 Continue";
 	}
+	
+	public boolean isTerminated() {
+		return fTerminated;
+	}
 
 	public void terminate() {
 		fRequestJob.cancel();
 		fEventsJob.cancel();
 		try {
-			fRequestWriter.close();
-			fRequestReader.close();
-			fRemdebugSocket.close();
-			fRemdebugServer.close();
-			fEventReader.close();
-			fEventServer.close();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+			if(fRequestWriter != null) {
+				fRequestWriter.close();								
+			}
+		} catch(Exception ex) { /* Ignore */ }
+		try {
+			if(fRequestReader != null) {
+				fRequestReader.close();
+			}
+		} catch(Exception ex) { /* Ignore */ }
+		try {
+			if(fRemdebugSocket != null) {
+				fRemdebugSocket.close();
+			}
+		} catch(Exception ex) { /* Ignore */ }
+		try {
+			if(fRemdebugServer != null) {
+				fRemdebugServer.close();
+			}
+		} catch(Exception ex) { /* Ignore */ }
+		try {
+			if(fEventReader != null) {
+				fEventReader.close();
+			}
+		} catch(Exception ex) { /* Ignore */ }
+		try {
+			if(fEventServer != null) {
+				fEventServer.close();
+			}
+		} catch(Exception ex) { /* Ignore */ }
+		fTerminated = true;
 	}
 }

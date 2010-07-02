@@ -9,7 +9,6 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.text.MessageFormat;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 
@@ -22,7 +21,6 @@ import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Path;
 import org.eclipse.core.runtime.Status;
-import org.eclipse.debug.core.DebugEvent;
 import org.eclipse.debug.core.DebugException;
 import org.eclipse.debug.core.DebugPlugin;
 import org.eclipse.debug.core.ILaunch;
@@ -141,8 +139,15 @@ public class LuaLaunchDelegate implements ILaunchConfigurationDelegate {
 
 		// if in debug mode, create a debug target
 		if (mode.equals(ILaunchManager.DEBUG_MODE)) {
-			IDebugTarget target = new LuaDebugTarget(launch, proc, server);
-			launch.addDebugTarget(target);
+			try {
+				IDebugTarget target = new LuaDebugTarget(launch, proc, server);
+				launch.addDebugTarget(target);
+			} catch(CoreException e) {
+				if(!server.isTerminated()) {
+					throw new DebugException(new Status(IStatus.ERROR, DebugPlugin
+							.getUniqueIdentifier(), "Could not start RemDebug client", e));
+				}
+			}
 		}
 	}
 

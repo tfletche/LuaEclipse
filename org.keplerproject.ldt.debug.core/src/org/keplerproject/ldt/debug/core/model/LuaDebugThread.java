@@ -44,7 +44,7 @@ public class LuaDebugThread extends LuaDebugElement implements IThread,
 	/**
 	 * Stack data obtained during a stack request event
 	 */
-	private String								fStackData;
+//	private String								fStackData;
 
 	private IStackFrame[]						fStackFrames;
 
@@ -53,7 +53,7 @@ public class LuaDebugThread extends LuaDebugElement implements IThread,
 	 */
 	private final Map<IStackFrame, IVariable[]>	fVariables	= new HashMap<IStackFrame, IVariable[]>();
 
-	private String								fFramesData;
+//	private String								fFramesData;
 
 	public LuaDebugThread(LuaDebugTarget target) {
 		super(target);
@@ -176,7 +176,7 @@ public class LuaDebugThread extends LuaDebugElement implements IThread,
 	 * 
 	 * @see org.eclipse.core.runtime.IAdaptable#getAdapter(java.lang.Class)
 	 */
-	@Override
+	@SuppressWarnings("unchecked")
 	public Object getAdapter(Class adapter) {
 		if (adapter == IThread.class) {
 			return this;
@@ -219,8 +219,10 @@ public class LuaDebugThread extends LuaDebugElement implements IThread,
 	 */
 	public void resume() throws DebugException {
 		try {
-			System.out.println(sendRequest("RUN"));
+			String response = sendRequest("RUN");
+			System.out.println(response);
 		} catch (Exception e) {
+			System.out.println("Error resuming ... " + e.getMessage());
 		}
 	}
 
@@ -231,8 +233,10 @@ public class LuaDebugThread extends LuaDebugElement implements IThread,
 	 */
 	public void suspend() throws DebugException {
 		try {
-			System.out.println(sendRequest("STEP"));
-		} catch (IOException e) {
+			String response = sendRequest("STEP");
+			System.out.println(response);
+		} catch (Exception e) {
+			System.out.println("Error suspending ... " + e.getMessage());
 		}
 	}
 
@@ -471,8 +475,8 @@ public class LuaDebugThread extends LuaDebugElement implements IThread,
 	/**
 	 * Notification an error was encountered. Fires a breakpoint suspend event.
 	 */
-	private void exceptionHit() {
-		suspended(DebugEvent.BREAKPOINT);
-	}
+//	private void exceptionHit() {
+//		suspended(DebugEvent.BREAKPOINT);
+//	}
 
 }

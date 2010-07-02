@@ -108,9 +108,7 @@ public class LuaStackFrame extends LuaDebugElement implements IStackFrame,
 	 */
 	public IPath getFilePath() {
 		IPath projectPath = fProject.getLocation();
-		IPath filePath = Path.fromOSString(fFileName);
 		return projectPath.append(fFileName);
-//		return fFileName.toString();
 	}
 
 	/**

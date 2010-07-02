@@ -39,7 +39,7 @@ public class LuaDebugElement extends DebugElement {
 	 * @return the debug target
 	 */
 	protected LuaDebugTarget getLuaDebugTarget() {
-		return (LuaDebugTarget) super.getDebugTarget();
+		return (LuaDebugTarget)getDebugTarget();
 	}
 
 	/**

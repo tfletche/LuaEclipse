@@ -43,6 +43,8 @@ remdebug.engine.config {
 
 print('start', remdebug.engine.start())
 
+--print("Targetting Script: "..file)
 local path = string.gsub(file, "(.-)/[^/]-$", "%1") or '.'
+--print("Enhancing Package Path: "..path)
 package.path = package.path .. ";" .. path .. "/?.lua"
 remdebug.engine.launch(file)

@@ -26,14 +26,17 @@ import org.eclipse.swt.events.ModifyListener;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.events.SelectionListener;
 import org.eclipse.swt.graphics.Font;
+import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Group;
+import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Text;
 import org.eclipse.ui.dialogs.ElementListSelectionDialog;
 import org.eclipse.ui.dialogs.ResourceListSelectionDialog;
+import org.eclipse.ui.model.WorkbenchLabelProvider;
 import org.keplerproject.ldt.debug.core.LuaDebuggerPlugin;
 
 /**
@@ -47,52 +50,65 @@ public class LuaMainTab extends AbstractLaunchConfigurationTab implements
 	private class WidgetListener implements ModifyListener, SelectionListener {
 
 		private Text		fTextField	= null;
-		private IContainer	fProject	= ResourcesPlugin.getWorkspace()
-												.getRoot();
+		private IContainer	fProject	= null;
 
 		public WidgetListener(Text textField) {
 			fTextField = textField;
 		}
 
 		public void browseLuaProjects() {
-			ILabelProvider labelProvider = new DefaultLabelProvider();
-			ElementListSelectionDialog dialog = new ElementListSelectionDialog(
-					getShell(), labelProvider);
+			ILabelProvider labelProvider = new WorkbenchLabelProvider();
+			ElementListSelectionDialog dialog = new ElementListSelectionDialog(getShell(), labelProvider);
 			dialog.setTitle(MSG_PROJECT_DLG_TITLE);
 			dialog.setMessage(MSG_PROJECT_DLG_MESSAGE);
 
-			dialog.setElements(ResourcesPlugin.getWorkspace().getRoot()
-					.getProjects());
+			dialog.setElements(ResourcesPlugin.getWorkspace().getRoot().getProjects());
 
-			if (dialog.open() == Window.OK) {
-				Object[] files = dialog.getResult();
-				IFile file = (IFile) files[0];
-				fTextField.setText(file.getFullPath().toString());
-				fProject = (IContainer) files[0];
+			int ret = dialog.open();
+			if(ret == ElementListSelectionDialog.CANCEL) {
+				return;
+			}
+			Object [] results = dialog.getResult();
+			if(results == null || results.length == 0) {
+				return;
+			}
+
+			//We only pick the first selection, and since we provide projects, 
+			//we know it is going to be a container, but sanity check anyway
+			if(results[0] instanceof IContainer) {
+				fProject = (IContainer)results[0];
+				fTextField.setText(fProject.getFullPath().toString());
 			}
 		}
 
 		public void browseLuaScripts() {
-			ResourceListSelectionDialog dialog = new ResourceListSelectionDialog(
-					getShell(), fProject, IResource.FILE);
+			if(fProject == null) {
+				return;
+			}
+			
+			ResourceListSelectionDialog dialog = new ResourceListSelectionDialog(getShell(), fProject, IResource.FILE);
 			dialog.setTitle(MSG_SCRIPT_DLG_TITLE);
 			dialog.setMessage(MSG_SCRIPT_DLG_MESSAGE);
 
-			if (dialog.open() == Window.OK) {
-				Object[] files = dialog.getResult();
-				IFile file = (IFile) files[0];
+			int ret = dialog.open();
+			if(ret == ResourceListSelectionDialog.CANCEL) {
+				return;
+			}
+			Object [] results = dialog.getResult();
+			if(results == null || results.length == 0) {
+				return;
+			}
+
+			//We only pick the first selection, and since we provide projects, 
+			//we know it is going to be a container, but sanity check anyway
+			if(results[0] instanceof IFile) {
+				IFile file = (IFile)results[0];
 				fTextField.setText(file.getFullPath().toString());
 			}
 		}
 
-
 		public void modifyText(ModifyEvent e) {
 			updateLaunchConfigurationDialog();
-		}
-
-
-		public void widgetDefaultSelected(SelectionEvent e) {
-			System.out.println(e.detail);
 		}
 
 		public void remoteDbgSelected(boolean isEnabled) {
@@ -100,7 +116,11 @@ public class LuaMainTab extends AbstractLaunchConfigurationTab implements
 			argsGroup.setEnabled(!isEnabled);
 			remoteDbgText.setEnabled(isEnabled);
 		}
-		
+
+		public void widgetDefaultSelected(SelectionEvent e) {
+			System.out.println(e.detail);
+		}
+
 		public void widgetSelected(SelectionEvent e) {
 			if (e.widget == fProjButton) {
 				browseLuaProjects();
@@ -139,8 +159,7 @@ public class LuaMainTab extends AbstractLaunchConfigurationTab implements
 	private Group argsGroup;
 	private Group remoteDbgGroup;
 	
-	private final WidgetListener	fProjectListener		= new WidgetListener(
-																	fProjText);
+	private WidgetListener	fProjectListener;
 
 	protected void createProjectEditor(Composite parent) {
 		Font font = parent.getFont();
@@ -155,6 +174,8 @@ public class LuaMainTab extends AbstractLaunchConfigurationTab implements
 		
 		gd = new GridData(GridData.FILL_HORIZONTAL);
 		fProjText = new Text(projectGroup, SWT.SINGLE | SWT.BORDER);
+		fProjectListener = new WidgetListener(fProjText);
+		
 		fProjText.setLayoutData(gd);
 		fProjText.setFont(font);
 		fProjText.addModifyListener(fProjectListener);
@@ -171,37 +192,35 @@ public class LuaMainTab extends AbstractLaunchConfigurationTab implements
 	protected Text					fMainText;
 	private Button					fSearchButton;
 
-	private final WidgetListener	fMainListener			= new WidgetListener(fMainText);
-	
-	private final WidgetListener	fArgsListener			= new WidgetListener(fArgsText);
+	private WidgetListener			fMainListener;
+	private WidgetListener			fArgsListener;
 	
 	private WidgetListener			fRemoteDbgListener;
 
 	protected void createMainTypeEditor(Composite parent, String text) {
 		Font font = parent.getFont();
-		mainGroup = SWTFactory.createGroup(parent, text, 2, 1,
-				GridData.FILL_HORIZONTAL);
-		Composite comp = SWTFactory.createComposite(mainGroup, font, 2, 2,
-				GridData.FILL_BOTH, 0, 0);
+		mainGroup = createGroup(parent, text, 2, 1, GridData.FILL_HORIZONTAL);
+		Composite comp = createComposite(mainGroup, font, 2, 2, GridData.FILL_BOTH, 0, 0);
 
-		fMainText = SWTFactory.createSingleText(comp, 1);
+		fMainText = createSingleText(comp, 1);
+		fMainListener = new WidgetListener(fMainText);
 		fMainText.addModifyListener(fMainListener);
 
 		fSearchButton = createPushButton(comp, MSG_SEARCH_BUTTON, null);
 		fSearchButton.addSelectionListener(fMainListener);
 		// createMainTypeExtensions(comp);
 		
-		argsGroup = SWTFactory.createGroup(parent, MSG_ARGS_TITLE, 1, 1, GridData.FILL_HORIZONTAL);
-		fArgsText = SWTFactory.createSingleText(argsGroup, 1);
+		argsGroup = createGroup(parent, MSG_ARGS_TITLE, 1, 1, GridData.FILL_HORIZONTAL);
+		fArgsText = createSingleText(argsGroup, 1);
+		fArgsListener = new WidgetListener(fArgsText);
 		fArgsText.addModifyListener(fArgsListener);
 		
-		remoteDbgGroup = SWTFactory.createGroup(parent, REMOTE_DBG_TITLE, 1, 1, GridData.FILL_HORIZONTAL);
-		remoteDbgBox = SWTFactory.createCheckButton(remoteDbgGroup, "Enable remote debug", null, false, 0);
-		SWTFactory.createLabel(remoteDbgGroup, "TCP Port", 1);
-		remoteDbgText = SWTFactory.createSingleText(remoteDbgGroup, 1);
+		remoteDbgGroup = createGroup(parent, REMOTE_DBG_TITLE, 1, 1, GridData.FILL_HORIZONTAL);
+		remoteDbgBox = createCheckButton(remoteDbgGroup, "Enable remote debug", null, false, 0);
+		createLabel(remoteDbgGroup, "TCP Port", 1);
+		remoteDbgText = createSingleText(remoteDbgGroup, 1);
 		fRemoteDbgListener = new WidgetListener(remoteDbgText);
 		remoteDbgBox.addSelectionListener(fRemoteDbgListener);
-		fArgsText.addModifyListener(fArgsListener);
 	}
 
 	/*
@@ -211,8 +230,7 @@ public class LuaMainTab extends AbstractLaunchConfigurationTab implements
 	 */
 
 	public void createControl(Composite parent) {
-		Composite comp = SWTFactory.createComposite(parent, parent.getFont(),
-				1, 1, GridData.FILL_BOTH);
+		Composite comp = createComposite(parent, parent.getFont(), 1, 1, GridData.FILL_BOTH);
 		((GridLayout) comp.getLayout()).verticalSpacing = 0;
 
 		createProjectEditor(comp);
@@ -381,5 +399,80 @@ public class LuaMainTab extends AbstractLaunchConfigurationTab implements
 		}
 			
 		return true;
+	}
+
+	/*
+	 * SWT Factory classes copied from DebugUI internal SWTFactory class.
+	 */
+
+	private Group createGroup(Composite parent, String text, int columns, int hspan, int fill) {
+    	Group g = new Group(parent, SWT.NONE);
+    	g.setLayout(new GridLayout(columns, false));
+    	g.setText(text);
+    	g.setFont(parent.getFont());
+    	GridData gd = new GridData(fill);
+		gd.horizontalSpan = hspan;
+    	g.setLayoutData(gd);
+    	return g;
+    }
+	
+	private Composite createComposite(Composite parent, Font font, int columns, int hspan, int fill, int marginwidth, int marginheight) {
+		Composite g = new Composite(parent, SWT.NONE);
+		GridLayout layout = new GridLayout(columns, false);
+		layout.marginWidth = marginwidth;
+		layout.marginHeight = marginheight;
+    	g.setLayout(layout);
+    	g.setFont(font);
+    	GridData gd = new GridData(fill);
+		gd.horizontalSpan = hspan;
+    	g.setLayoutData(gd);
+    	return g;
+	}
+
+	private Composite createComposite(Composite parent, Font font, int columns, int hspan, int fill) {
+    	Composite g = new Composite(parent, SWT.NONE);
+    	g.setLayout(new GridLayout(columns, false));
+    	g.setFont(font);
+    	GridData gd = new GridData(fill);
+		gd.horizontalSpan = hspan;
+    	g.setLayoutData(gd);
+    	return g;
+    }
+
+	private Text createSingleText(Composite parent, int hspan) {
+    	Text t = new Text(parent, SWT.SINGLE | SWT.BORDER);
+    	t.setFont(parent.getFont());
+    	GridData gd = new GridData(GridData.FILL_HORIZONTAL);
+    	gd.horizontalSpan = hspan;
+    	t.setLayoutData(gd);
+    	return t;
+    }
+
+	private Button createCheckButton(Composite parent, String label, Image image, boolean checked, int hspan) {
+		Button button = new Button(parent, SWT.CHECK);
+		button.setFont(parent.getFont());
+		button.setSelection(checked);
+		if(image != null) {
+			button.setImage(image);
+		}
+		if(label != null) {
+			button.setText(label);
+		}
+		GridData gd = new GridData();
+		gd.horizontalSpan = hspan;
+		button.setLayoutData(gd);
+		//setButtonDimensionHint(button);
+		return button;
+	}
+
+	private Label createLabel(Composite parent, String text, int hspan) {
+		Label l = new Label(parent, SWT.NONE);
+		l.setFont(parent.getFont());
+		l.setText(text);
+		GridData gd = new GridData(GridData.FILL_HORIZONTAL);
+		gd.horizontalSpan = hspan;
+		gd.grabExcessHorizontalSpace = false;
+		l.setLayoutData(gd);
+		return l;
 	}
 }
