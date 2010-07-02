@@ -30,7 +30,6 @@ import org.eclipse.core.resources.IResourceDelta;
 import org.eclipse.core.resources.IResourceDeltaVisitor;
 import org.eclipse.core.resources.IResourceVisitor;
 import org.eclipse.core.runtime.CoreException;
-import org.eclipse.core.runtime.IPath;
 import org.keplerproject.ldt.core.ILuaEntry;
 import org.keplerproject.ldt.core.LuaProject;
 import org.keplerproject.ldt.core.LuaScriptsSpecs;
@@ -45,8 +44,7 @@ import org.keplerproject.luajava.LuaState;
  * @version $Id: LuaResourceDeltaVisitor.java,v 1.7 2007/11/16 21:37:52
  *          jasonsantos Exp $
  */
-public class LuaResourceDeltaVisitor implements IResourceDeltaVisitor,
-		IResourceVisitor {
+public class LuaResourceDeltaVisitor implements IResourceDeltaVisitor, IResourceVisitor {
 
 	public LuaResourceDeltaVisitor() {
 		return;
@@ -55,6 +53,13 @@ public class LuaResourceDeltaVisitor implements IResourceDeltaVisitor,
 	public boolean visit(IResourceDelta delta) throws CoreException {
 		
 		final IResource res = delta.getResource();
+		//We may be reporting on resources that have been deleted.
+		//Too much of the code called from here expects getLocation() 
+		//to be valid, so if the resource is deleted, bail out.
+		if(res == null || !res.exists()) {
+			return false;
+		}
+		
 		if (LuaScriptsSpecs.getDefault().isValidLuaScriptFileName(res)) {
 			if (LuaScriptsSpecs.getDefault().isLuaDocAutoGenerationActive())
 				updateLuadocEntries(res);
@@ -71,16 +76,18 @@ public class LuaResourceDeltaVisitor implements IResourceDeltaVisitor,
 
 		try {
 			try {
-				res.deleteMarkers("org.eclipse.core.resources.problemmarker", true,
-						2);
+				res.deleteMarkers("org.eclipse.core.resources.problemmarker", true, 2);
 			} catch (CoreException coreexception) {
 	
 			}
+	
 			String code = readFile(res);
-	
+
 			// Comment out the 'shabang' (#!) from the beginning of file if found
-			code = code.replaceAll("^(\\s*)#!", "$1--#!");
-	
+			if(code != null) {
+				code = code.replaceAll("^(\\s*)#!", "$1--#!");
+			}
+		
 			// enclose code in a function to avoid error
 			// -- extra line break before 'end' avoids error when last line of code
 			// is a -- comment
