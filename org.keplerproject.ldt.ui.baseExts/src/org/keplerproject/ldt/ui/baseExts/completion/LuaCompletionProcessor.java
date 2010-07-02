@@ -154,9 +154,14 @@ public class LuaCompletionProcessor implements IContentAssistProcessor, ILuaSynt
 	}
 	
 	static final Pattern fLuaFunctionPattern = Pattern.compile("^\\w*function\\s+(\\w+)\\s*\\(.*$", Pattern.MULTILINE);
-	protected ArrayList<ICompletionProposal> getFunctionProposals(String fileContents, LuaVariableDetector wordPart) {
+	protected List<ICompletionProposal> getFunctionProposals(String fileContents, LuaVariableDetector wordPart) {
 		ICompletionProposal proposal;
 
+		String variable = wordPart.getVariable();
+		if(variable != null && variable.length() != 0) {
+			return Collections.emptyList();
+		}
+		
 		String 	stem = wordPart.getString();
 		int 	wordOffset = wordPart.getOffset();
 		
