@@ -22,17 +22,19 @@
 */
 package org.keplerproject.ldt.ui.editors;
 
-import java.lang.reflect.Constructor;
-
-import org.eclipse.jface.internal.text.html.BrowserInformationControl;
-import org.eclipse.jface.internal.text.html.HTMLTextPresenter;
-import org.eclipse.jface.text.*;
+import org.eclipse.jface.text.BadLocationException;
+import org.eclipse.jface.text.DefaultInformationControl;
+import org.eclipse.jface.text.IInformationControl;
+import org.eclipse.jface.text.IInformationControlCreator;
+import org.eclipse.jface.text.IRegion;
+import org.eclipse.jface.text.ITextHover;
+import org.eclipse.jface.text.ITextViewer;
+import org.eclipse.jface.text.Region;
 import org.eclipse.jface.text.information.IInformationProviderExtension2;
-import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.widgets.Shell;
-import org.keplerproject.ldt.core.luadoc.*;
-import org.keplerproject.ldt.ui.text.lua.*;
+import org.keplerproject.ldt.core.luadoc.LuadocGenerator;
+import org.keplerproject.ldt.ui.text.lua.LuaWordFinder;
 
 /**
  * The lua source Hover Text. This class provides text to 
@@ -46,35 +48,40 @@ import org.keplerproject.ldt.ui.text.lua.*;
  */
 
 public class LuaTextHover implements ITextHover, IInformationProviderExtension2 {
-
+	
 	/* (non-Javadoc)
 	 * Method declared on ITextHover
 	 */
 	public String getHoverInfo(ITextViewer textViewer, IRegion hoverRegion) {
-		if (hoverRegion != null) {
-			try {
-				
-				if (hoverRegion.getLength() > -1) {
-					//	TODO: determine exactly which code element is this instead of just grabbing the word 
-					
-					IRegion hoverWord = LuaWordFinder.findWord(textViewer.getDocument(), hoverRegion.getOffset());
-					
-					String token = textViewer.getDocument().get(hoverWord.getOffset(), hoverWord.getLength());
-					
-					// TODO: obtain from a central engine the right documentation for this code element
-					LuadocGenerator lg = LuadocGenerator.getInstance();
-					String documentationText = lg.getDocumentationText(token);
-					//String documentationText = token;
-					
-					return documentationText;
-				}
-				
-				return textViewer.getDocument().get(hoverRegion.getOffset(), hoverRegion.getLength());
-				
-			} catch (BadLocationException x) {
-			}
+		if (hoverRegion == null || hoverRegion.getLength() > -1) {
+			return null;
 		}
-		return ""; //$NON-NLS-1$
+		
+		try {
+			//	TODO: determine exactly which code element is this instead of just grabbing the word 
+			IRegion hoverWord = LuaWordFinder.findWord(textViewer.getDocument(), hoverRegion.getOffset());
+			if(hoverWord == null) {
+				return null;
+			}
+			
+			String token = textViewer.getDocument().get(hoverWord.getOffset(), hoverWord.getLength());
+			
+			// TODO: obtain from a central engine the right documentation for this code element
+			LuadocGenerator lg = LuadocGenerator.getInstance();
+			String documentationText = lg.getDocumentationText(token);
+			
+			//Work around a small buglet in the HTML presenter that doesn't
+			//force a break on <h*> tags.  This messes up the presentation.
+			if(documentationText != null) {
+				documentationText = documentationText.replace("<h1>", "<br><h1>");
+				documentationText = documentationText.replace("<h2>", "<br><h2>");
+				documentationText = documentationText.replace("<h3>", "<br><h3>");
+			}
+			
+			return documentationText;
+		} catch (BadLocationException x) { /* Ignored */ }
+		
+		return null;
 	}
 	
 	/* (non-Javadoc)
@@ -93,21 +100,8 @@ public class LuaTextHover implements ITextHover, IInformationProviderExtension2 
     */
     public IInformationControlCreator getInformationPresenterControlCreator() {
     	return new IInformationControlCreator() {
-    		@SuppressWarnings("restriction")
 			public IInformationControl createInformationControl(Shell parent) {
-    			int shellStyle= SWT.RESIZE | SWT.TOOL;
-                int style= SWT.V_SCROLL | SWT.H_SCROLL;
-                if (BrowserInformationControl.isAvailable(parent))
-                	 try {
-                 		 Class BI = Class.forName("BrowserInformationControl");
-                 		 Class params[] = {Shell.class, Integer.class, Integer.class};
-                 		 Constructor c = BI.getConstructor(params);
-                 		 return (IInformationControl) c.newInstance(parent, shellStyle, style);
-                 	 } catch(Exception e) {
-                 		return new DefaultInformationControl(parent, shellStyle, style, new HTMLTextPresenter(false));
-                 	 }
-                else
-                	return new DefaultInformationControl(parent, shellStyle, style, new HTMLTextPresenter(false));
+    			return new DefaultInformationControl(parent, true);    			
     		}
     	};
     }
