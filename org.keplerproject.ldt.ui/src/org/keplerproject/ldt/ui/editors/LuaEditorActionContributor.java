@@ -27,8 +27,12 @@ import java.util.ResourceBundle;
 import org.eclipse.jface.action.IAction;
 import org.eclipse.jface.action.IMenuManager;
 import org.eclipse.jface.action.Separator;
+import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.IWorkbenchActionConstants;
 import org.eclipse.ui.editors.text.TextEditorActionContributor;
+import org.eclipse.ui.texteditor.ITextEditor;
+import org.eclipse.ui.texteditor.ITextEditorActionConstants;
+import org.eclipse.ui.texteditor.ITextEditorActionDefinitionIds;
 import org.eclipse.ui.texteditor.RetargetTextEditorAction;
 import org.keplerproject.ldt.ui.LDTUIPlugin;
 /**
@@ -38,26 +42,36 @@ import org.keplerproject.ldt.ui.LDTUIPlugin;
  */
 public class LuaEditorActionContributor extends TextEditorActionContributor {
 
-	private IAction fContentAssistProposal;
-	private IAction fContentAssistTipProposal;
+	private RetargetTextEditorAction fContentAssistProposal;
 
 	public LuaEditorActionContributor() {
 		super();
 		ResourceBundle bundle = LDTUIPlugin.getDefault().getResourceBundle();
 
-		fContentAssistProposal = new RetargetTextEditorAction(bundle,"ContentAssistProposal.");
-		fContentAssistTipProposal = new RetargetTextEditorAction(bundle,"ContentAssistTipProposal.");
-		
+		fContentAssistProposal = new RetargetTextEditorAction(bundle, "ContentAssistProposal.");
 	}
+
 	public void contributeToMenu(IMenuManager menu) {
 		IMenuManager editMenu = menu.findMenuUsingPath(IWorkbenchActionConstants.M_EDIT);
-		if(editMenu != null)
-		{
+		if(editMenu != null) {
 			editMenu.add(new Separator());
 			editMenu.add(fContentAssistProposal);
-			editMenu.add(fContentAssistTipProposal);
 		}
+		
 		super.contributeToMenu(menu);
 	}
 	
+	public void setActiveEditor(IEditorPart part) {
+		super.setActiveEditor(part);
+		
+		ITextEditor textEditor= null;
+		if (part instanceof ITextEditor) {
+			textEditor= (ITextEditor) part;
+		}
+		
+		IAction action;
+
+		action = getAction(textEditor, LuaEditor.CONTENT_ASSIST_ACTION_ID);
+		fContentAssistProposal.setAction(action);
+	}
 }

@@ -111,7 +111,7 @@ public class LuaCompletionProcessor implements IContentAssistProcessor, ILuaSynt
 		while (L.next(-2) != 0) {
 			String key = L.toString(-2);
 
-			if (!key.startsWith(wordPart.getString())) {
+			if (key.startsWith(stem)) {
 				
 				String contextKey = null;
 				if (wordPart.getVariable() != null) {
@@ -217,7 +217,7 @@ public class LuaCompletionProcessor implements IContentAssistProcessor, ILuaSynt
 	}
 
 	public char[] getCompletionProposalAutoActivationCharacters() {
-		char result[] = new char[] { '.', ':', ' '};
+		char result[] = new char[] { '.', ':'};
 		return result;
 	}
 

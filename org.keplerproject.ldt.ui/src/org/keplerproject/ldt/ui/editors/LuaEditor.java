@@ -19,9 +19,11 @@
 package org.keplerproject.ldt.ui.editors;
 
 import java.util.Map;
+import java.util.ResourceBundle;
 
 import org.eclipse.core.resources.IResourceChangeEvent;
 import org.eclipse.core.resources.IResourceChangeListener;
+import org.eclipse.jface.action.Action;
 import org.eclipse.jface.text.source.Annotation;
 import org.eclipse.jface.text.source.ISourceViewer;
 import org.eclipse.jface.text.source.IVerticalRuler;
@@ -33,8 +35,11 @@ import org.eclipse.ui.IEditorInput;
 import org.eclipse.ui.IEditorSite;
 import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.texteditor.AbstractDecoratedTextEditor;
+import org.eclipse.ui.texteditor.ContentAssistAction;
 import org.eclipse.ui.texteditor.DefaultRangeIndicator;
 import org.eclipse.ui.texteditor.IDocumentProvider;
+import org.eclipse.ui.texteditor.ITextEditorActionConstants;
+import org.eclipse.ui.texteditor.ITextEditorActionDefinitionIds;
 import org.eclipse.ui.views.contentoutline.IContentOutlinePage;
 import org.keplerproject.ldt.ui.LDTUIPlugin;
 
@@ -46,6 +51,7 @@ import org.keplerproject.ldt.ui.LDTUIPlugin;
  */
 
 public class LuaEditor extends AbstractDecoratedTextEditor {
+	public static String CONTENT_ASSIST_ACTION_ID = "ContentAssistProposal";
 
 	private final LuaColorManager			colorManager;
 
@@ -151,22 +157,16 @@ public class LuaEditor extends AbstractDecoratedTextEditor {
 		super.dispose();
 	}
 
-	/**
-	 * Unusable for now.!
-	 */
-	@Override
 	protected void createActions() {
 		super.createActions();
+		
+		ResourceBundle bundle = LDTUIPlugin.getDefault().getResourceBundle();
+		Action action;
 
-		// ResourceBundle bundle = LDTUIPlugin.getDefault().getResourceBundle();
-		/*
-		 * setAction("LuaContentAssistProposal", new TextOperationAction(bundle,
-		 * "ContentAssistProposal.", this,
-		 * ISourceViewer.CONTENTASSIST_PROPOSALS));
-		 * setAction("LuaContentAssistTipProposal", new TextOperationAction(
-		 * bundle, "ContentAssistTipProposal.", this,
-		 * ISourceViewer.CONTENTASSIST_CONTEXT_INFORMATION));
-		 */
+		action = new ContentAssistAction(bundle, "ContentAssistProposal.", this);
+		action.setActionDefinitionId(ITextEditorActionDefinitionIds.CONTENT_ASSIST_PROPOSALS);
+		setAction(CONTENT_ASSIST_ACTION_ID, action);
+		markAsStateDependentAction(CONTENT_ASSIST_ACTION_ID, true);		
 	}
 
 	/**
@@ -245,15 +245,13 @@ public class LuaEditor extends AbstractDecoratedTextEditor {
 	}
 	
 
-	@Override
+	@SuppressWarnings("unchecked")
 	public Object getAdapter(Class adapter) {
 		
 		if (IContentOutlinePage.class.equals(adapter)) {
-	        
-	         return getContentOutline();
-	      }
+			return getContentOutline();
+		}
 
-		
 		return super.getAdapter(adapter);
 	}
 	

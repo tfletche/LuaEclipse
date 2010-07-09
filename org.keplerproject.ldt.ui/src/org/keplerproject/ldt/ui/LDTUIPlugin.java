@@ -78,7 +78,7 @@ public class LDTUIPlugin extends AbstractUIPlugin {
 	private List reconcilierExtensions = null;
 
 	/** The assist Extesions */
-	private List assistExtensions = null;
+	private List<ILuaContentAssistExtension> assistExtensions = null;
 
 	/** The content Extensions */
 	private List contentExtensions = null;
@@ -147,7 +147,7 @@ public class LDTUIPlugin extends AbstractUIPlugin {
 	 */
 	public boolean initializeAssistExtension(String editorId) {
 		// Initialize the extension lists
-		this.assistExtensions = new ArrayList();
+		this.assistExtensions = new ArrayList<ILuaContentAssistExtension>();
 
 		// Fetch the Plug-in Registry for the extensions
 		IExtensionPoint p = Platform.getExtensionRegistry().getExtensionPoint(
@@ -352,7 +352,7 @@ public class LDTUIPlugin extends AbstractUIPlugin {
 	 * 
 	 * @return
 	 */
-	public synchronized List getAssistExtension(String editorId) {
+	public synchronized List<ILuaContentAssistExtension> getAssistExtension(String editorId) {
 		initializeAssistExtension(editorId);
 		return assistExtensions;
 	}

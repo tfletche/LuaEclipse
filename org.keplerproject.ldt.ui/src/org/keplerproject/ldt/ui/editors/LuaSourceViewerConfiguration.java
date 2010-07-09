@@ -29,7 +29,6 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
-import org.eclipse.jface.internal.text.html.BrowserInformationControl;
 import org.eclipse.jface.internal.text.html.HTMLTextPresenter;
 import org.eclipse.jface.text.DefaultInformationControl;
 import org.eclipse.jface.text.IDocument;
@@ -50,7 +49,6 @@ import org.eclipse.jface.text.information.InformationPresenter;
 import org.eclipse.jface.text.presentation.IPresentationReconciler;
 import org.eclipse.jface.text.presentation.PresentationReconciler;
 import org.eclipse.jface.text.reconciler.IReconciler;
-import org.eclipse.jface.text.reconciler.MonoReconciler;
 import org.eclipse.jface.text.source.ISourceViewer;
 import org.eclipse.jface.text.source.SourceViewerConfiguration;
 import org.eclipse.swt.SWT;
@@ -140,28 +138,21 @@ public class LuaSourceViewerConfiguration extends TextSourceViewerConfiguration 
 	public IContentAssistant getContentAssistant(ISourceViewer sourceViewer) {
 		ContentAssistant assistant = new ContentAssistant();
 		String editorId = this.editor.getInstanceId();
-		List<?> extensions = LDTUIPlugin.getDefault().getAssistExtension(editorId);
-		Iterator<?> extIte = extensions.iterator();
+		List<ILuaContentAssistExtension> extensions = LDTUIPlugin.getDefault().getAssistExtension(editorId);
+		Iterator<ILuaContentAssistExtension> extIte = extensions.iterator();
 		while (extIte.hasNext()) {
-			/*
-			 * assistant.setContentAssistProcessor(new
-			 * LuaCompletionProcessor(),IDocument.DEFAULT_CONTENT_TYPE);
-			 */
-			ILuaContentAssistExtension ext = (ILuaContentAssistExtension) extIte
-					.next();
+			ILuaContentAssistExtension ext = extIte.next();
 			ext.contribute(editor, assistant);
 		}
 
-		assistant.setAutoActivationDelay(400);
-		assistant
-				.setProposalPopupOrientation(ContentAssistant.CONTEXT_INFO_BELOW);
-		assistant
-				.setContextInformationPopupOrientation(ContentAssistant.CONTEXT_INFO_BELOW);
-		assistant.setContextInformationPopupBackground(colorManager
-				.getColor(new RGB(255, 255, 255)));
-		assistant.setProposalSelectorBackground(colorManager.getColor(new RGB(
-				255, 255, 255)));
 		assistant.enableAutoActivation(true);
+		assistant.setAutoActivationDelay(400);
+
+		assistant.setProposalPopupOrientation(ContentAssistant.CONTEXT_INFO_BELOW);
+		assistant.setProposalSelectorBackground(colorManager.getColor(new RGB(255, 255, 255)));
+
+		assistant.setContextInformationPopupOrientation(ContentAssistant.CONTEXT_INFO_BELOW);
+		assistant.setContextInformationPopupBackground(colorManager.getColor(new RGB(255, 255, 255)));
 
 		return assistant;
 	}
@@ -368,7 +359,7 @@ public class LuaSourceViewerConfiguration extends TextSourceViewerConfiguration 
      public IInformationControlCreator getInformationPresenterControlCreator() {
          return new IInformationControlCreator() {
              public IInformationControl createInformationControl(Shell parent) {
-                 int shellStyle= SWT.RESIZE | SWT.TOOL;
+            	 int shellStyle= SWT.RESIZE | SWT.TOOL;
                  int style= SWT.V_SCROLL | SWT.H_SCROLL;
              	 try {
              		 Class BI = Class.forName("BrowserInformationControl");
