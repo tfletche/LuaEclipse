@@ -53,7 +53,7 @@ public class LuaTextHover implements ITextHover, IInformationProviderExtension2 
 	 * Method declared on ITextHover
 	 */
 	public String getHoverInfo(ITextViewer textViewer, IRegion hoverRegion) {
-		if (hoverRegion == null || hoverRegion.getLength() > -1) {
+		if (hoverRegion == null || hoverRegion.getLength() <= -1) {
 			return null;
 		}
 		
